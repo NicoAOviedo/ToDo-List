@@ -1,221 +1,138 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 )
 
+type Tarea struct {
+	ID          int
+	Descripcion string
+	Estado   bool
+}
+
 func main() {
-
-	// type Tarea struct{
-	// 	Id int;
-	// 	Tarea string;
-	// 	Estado string
-	// }
-
-	toDoListFile := "Todo.csv"
-
-	verificadorArchivo(toDoListFile)
-
-	menu := "Todo List \n-------------- \n1.Mostar tareas.\n2.Agregar tarea.\n3.Borrar tarea.\n4.Cambiar estado de tarea.(Completa/Incompleta)\n5.Cambiar tarea."
-
-	fmt.Println(menu)
-
-	var seleccion string
-
-	fmt.Println("Ingresar opcion seleccionada: ")
-	fmt.Scanln(&seleccion)
-
-	switch seleccion {
-	case "1":
-		leerYMostarCSV(toDoListFile)
-	case "2":
-		agregarTarea(toDoListFile)
-	case "3":
-		var indexLineaABorrar string
-		leerYMostarCSV(toDoListFile)
-		fmt.Println("Ingresar el numero de la linea a borrar:")
-		fmt.Scanln(&indexLineaABorrar)
-		borrarTarea(toDoListFile, indexLineaABorrar, 0)
-		leerYMostarCSV(toDoListFile)
-	case "4":
-		var indexEstadoAActualizar string
-		leerYMostarCSV(toDoListFile)
-		fmt.Println("Ingresar el numero de linea a cambiar de estado:")
-		fmt.Scanln(&indexEstadoAActualizar)
-		actualizarEstado(toDoListFile, indexEstadoAActualizar, 0)
-		leerYMostarCSV(toDoListFile)
-
-
-	}
-}
-func actualizarEstado(nombreArchivo, valor string, indiceTareas int) {
-	toDo, err := os.Open(nombreArchivo)
+	tareas, err := cargarTareas()
 	if err != nil {
-		fmt.Println("Error al abrir el archivo.", err)
-	}
-	defer toDo.Close()
-	lector := csv.NewReader(toDo)
-	lineas, err := lector.ReadAll()
-	if err != nil {
-		fmt.Println("Error al leer el archivo.", err)
-	}
-	var lineasFiltradas [][]string
-	// completa := "Completa"
-	// incompleta := "Incompleta"
-	for _, linea := range lineas {
-		if indiceTareas >= len(linea) {
-			fmt.Println("Indice fuera de rango.")
-		}
-		if linea[indiceTareas] != valor {
-			lineasFiltradas = append(lineasFiltradas, linea)
-		}
-		if linea[indiceTareas] == valor {
-			if lineas[indiceTareas][2] == "Completa" {
-				linea[2] = "Incompleta"
-				fmt.Println(linea)
-				lineasFiltradas = append(lineasFiltradas, linea)
-			} else {
-				linea[2] = "Completa"
-				lineasFiltradas = append(lineasFiltradas, linea)
-
-			}
-		}
-	}
-	toDo, err = os.Create(nombreArchivo)
-	if err != nil {
-		fmt.Println("Error creando el archivo: ", err)
-	}
-	defer toDo.Close()
-	escritor := csv.NewWriter(toDo)
-	defer escritor.Flush()
-
-	for _, linea := range lineasFiltradas {
-		if err := escritor.Write(linea); err != nil {
-			fmt.Println("Error escribiendo una fila: ", err)
-		}
-	}
-}
-
-func borrarTarea(nombreArchivo, valor string, indiceTareas int) {
-	toDo, err := os.Open(nombreArchivo)
-	if err != nil {
-		fmt.Println("Error al abrir el archivo: ", err)
-	}
-	defer toDo.Close()
-
-	lector := csv.NewReader(toDo)
-	lineas, err := lector.ReadAll()
-	if err != nil {
-		fmt.Println("Error leyendo el archivo: ", err)
-	}
-	var lineasFiltradas [][]string
-	for i, linea := range lineas {
-		if indiceTareas >= len(linea) {
-			fmt.Println("Indice fuera de rango: ", i)
-		}
-		if linea[indiceTareas] != valor {
-			lineasFiltradas = append(lineasFiltradas, linea)
-		}
-	}
-	toDo, err = os.Create(nombreArchivo)
-	if err != nil {
-		fmt.Println("Error creando el archivo: ", err)
-	}
-	defer toDo.Close()
-	escritor := csv.NewWriter(toDo)
-	defer escritor.Flush()
-
-	for _, linea := range lineasFiltradas {
-		if err := escritor.Write(linea); err != nil {
-			fmt.Println("Error escribiendo una fila: ", err)
-		}
-	}
-
-}
-
-func agregarTarea(nombreArchivo string) {
-	toDo, err := os.OpenFile(nombreArchivo, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		fmt.Println("Error al abrir archivo CSV.", err)
-		return
-	}
-	defer toDo.Close()
-
-	escritor := csv.NewWriter(toDo)
-	defer escritor.Flush()
-
-	nuevaTarea := []string{"X", "", ""}
-
-	var nombreTareaNueva string
-	var estadoTareaNueva string
-	fmt.Println("Ingrese nombre de tarea nueva: ")
-	fmt.Scanln(&nombreTareaNueva)
-	nuevaTarea[1] = nombreTareaNueva
-	fmt.Println("Ingrese estado de tarea nueva: ")
-	fmt.Scanln(&estadoTareaNueva)
-	nuevaTarea[2] = estadoTareaNueva
-
-	if err := escritor.Write(nuevaTarea); err != nil {
-		fmt.Println("Error al escribir el archivo.", err)
+		fmt.Println("Error al cargar tareas: ", err)
 		return
 	}
 
-}
+	lector := bufio.NewReader(os.Stdin)
 
-func verificadorArchivo(nombreArchivo string) {
-	if _, err := os.Stat(nombreArchivo); err == nil {
-		fmt.Println("El archivo ya existe, no se creara uno nuevo.")
-	} else if os.IsNotExist(err) {
-		fmt.Println("El archivo no existe , se creara uno nuevo.")
-		crearCSV(nombreArchivo)
-	}
-}
+	for {
+		fmt.Println("\n-----ToDo List-----\n1. Lista de tareas.\n2. Agregar tarea.\n3. Completar tarea.\n4. Salir.")
+		fmt.Print("Eliga una opcion: ")
 
-func crearCSV(nombreArchivo string) {
-	toDo, err := os.Create(nombreArchivo)
-	if err != nil {
-		fmt.Println("Error al crear archivo CSV.", err)
-		return
-	}
-	defer toDo.Close()
+		var opcion int
+		fmt.Scanln(&opcion)
 
-	escritor := csv.NewWriter(toDo)
-	defer escritor.Flush()
-
-	tareas := [][]string{
-		{"1", "Tarea 1", "Completa"},
-		{"2", "Tarea 2", "Incompleta"},
-		{"3", "Tarea 3", "Completa"},
-	}
-	for _, linea := range tareas {
-		if err := escritor.Write(linea); err != nil {
-			fmt.Println("Error al escribir el archivo.", err)
+		switch opcion {
+		case 1:
+			mostrarTareas(tareas)
+		case 2:
+			fmt.Print("Ingrese la nueva tarea: ")
+			descripcion, _ := lector.ReadString('\n')
+			descripcion = strings.TrimSpace(descripcion)
+			tareas = agregarTarea(tareas, descripcion)
+		case 3:
+			fmt.Print("Seleccione el ID de la tarea a completar: ")
+			var id int
+			fmt.Scanln(&id)
+			tareas = completarTarea(tareas, id)
+		case 4:
+			fmt.Println("Adios!")
 			return
+		default:
+			fmt.Println("Opcion invalida,seleccione otra.")
 		}
 	}
-
-	fmt.Println("Archivo CSV creado:", nombreArchivo)
 }
 
-func leerYMostarCSV(nombreArchivo string) {
-	toDo, err := os.Open(nombreArchivo)
-	if err != nil {
-		fmt.Println("Error al abrir archivo CSV.", err)
-		return
-	}
-	defer toDo.Close()
 
-	lector := csv.NewReader(toDo)
+const nombreArchivoToDo = "todolist.csv"
 
-	lineas, err := lector.ReadAll()
+func cargarTareas() ([]Tarea, error) {
+	var tareas []Tarea
+
+	archivo, err := os.Open(nombreArchivoToDo)
 	if err != nil {
-		fmt.Println("Error leyendo archivo CSV.", err)
-		return
+		if os.IsNotExist(err) {
+			return tareas, nil
+		}
+		return nil, err
 	}
-	fmt.Println("Contenido archivo CSV:")
-	for _, linea := range lineas {
-		fmt.Println(linea)
+	defer archivo.Close()
+
+	lector := csv.NewReader(archivo)
+	datos, err := lector.ReadAll()
+	if err != nil {
+		return nil, err
 	}
+
+	for _, dato := range datos {
+		id, _ := strconv.Atoi(dato[0])
+		estado, _ := strconv.ParseBool(dato[2])
+		tareas = append(tareas, Tarea{ID: id, Descripcion: dato[1], Estado: estado})
+	}
+
+	return tareas, nil
+}
+
+func guardarTareas(tareas []Tarea) error {
+	archivo, err := os.Create(nombreArchivoToDo)
+	if err != nil {
+		return err
+	}
+	defer archivo.Close()
+
+	escritor := csv.NewWriter(archivo)
+	defer escritor.Flush()
+
+	for _, tarea := range tareas {
+		escritor.Write([]string{
+			strconv.Itoa(tarea.ID),
+			tarea.Descripcion,
+			strconv.FormatBool(tarea.Estado),
+		})
+	}
+
+	return nil
+}
+
+func agregarTarea(tareas []Tarea, descripcion string) []Tarea {
+	nuevaTarea := Tarea{
+		ID:          len(tareas) + 1,
+		Descripcion: descripcion,
+		Estado:   false,
+	}
+	tareas = append(tareas, nuevaTarea)
+	guardarTareas(tareas) 
+	return tareas
+}
+
+func mostrarTareas(tareas []Tarea) {
+	fmt.Println("\nLista de tareas:")
+	for _, tarea := range tareas {
+		estado := "❌"
+		if tarea.Estado {
+			estado = "✅"
+		}
+		fmt.Printf("[%d] %s - %s\n", tarea.ID, tarea.Descripcion, estado)
+	}
+}
+
+func completarTarea(tareas []Tarea, id int) []Tarea {
+	for i, tarea := range tareas {
+		if tarea.ID == id {
+			tareas[i].Estado = true
+			break
+		}
+	}
+	guardarTareas(tareas)
+	return tareas
 }
